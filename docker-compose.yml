@@ -1,0 +1,93 @@
+version: '3.9'
+services:
+  #  explanatory-note-application:
+  #    container_name: explanatory-note-application
+  #    image: 'schegolevalex/explanatory_note_2:0.0.1-SNAPSHOT'
+  #    ports:
+  #      - "8888:8080"
+  #    depends_on:
+  #      explanatory-note-database:
+  #        condition: service_healthy
+  #    #      explanatory-note-keycloak:
+  #    #        condition: service_healthy
+  #
+  #    environment:
+  #      - SERVER_PORT=8080
+  #      - SPRING_DATASOURCE_URL=jdbc:postgresql://explanatory-note-database:5432/postgres
+  #      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER-URI=http://explanatory-note-keycloak:8080/realms/xml-realm/.well-known/openid-configuration
+  #      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://explanatory-note-keycloak:8080/realms/xml-realm/protocol/openid-connect/certs
+  #  #      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER-URI=http://explanatory-note-keycloak:8180/realms/xml-realm/.well-known/openid-configuration
+  #  #      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://explanatory-note-keycloak:8180/realms/xml-realm/protocol/openid-connect/certs
+  #
+  #  #      - SPRING_DATASOURCE_USERNAME=postgres
+  #  #      - SPRING_DATASOURCE_PASSWORD=test
+  #  #      - SPRING_JPA_HIBERNATE_DDL_AUTO=none
+  #  #      - SPRING_JPA_SHOW-SQL=true
+
+  explanatory-note-database:
+    container_name: explanatory-note-database
+    image: postgres
+    restart: on-failure
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  keycloak-database:
+    container_name: keycloak-database
+    image: postgres:15
+    restart: on-failure
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=postgres_keycloak
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  explanatory-note-keycloak:
+    container_name: explanatory-note-keycloak
+    image: quay.io/keycloak/keycloak:22.0.5
+    command:
+      - start --auto-build --db postgres --hostname-strict-https false --hostname-strict false --proxy edge --http-enabled true --import-realm  --health-enabled=true
+    #      - start --auto-build --db postgres --hostname-strict-https false --health-enabled=true --hostname-strict false --proxy edge --http-enabled true --import-realm --spi-user-profile-legacy-user-profile-read-only-attributes *_RES_ACCESS_MODE
+    environment:
+      KC_DB_URL: jdbc:postgresql://keycloak-database:5432/postgres_keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KC_DB_SCHEMA: public
+      KC_FEATURES: preview
+      KEYCLOAK_ADMIN: root
+      KEYCLOAK_ADMIN_PASSWORD: root
+    volumes:
+      - type: bind
+        source: ./src/main/resources/keycloak/import/realm-export.json
+        target: /opt/keycloak/data/import/realm-export.json
+        read_only: true
+    ports:
+      - "8180:8080"
+    depends_on:
+      keycloak-database:
+        condition: service_healthy
+#    healthcheck:
+#      test: [ "CMD", "curl", "--head", "-fsS", "http://0.0.0.0:8080/health/ready" ]
+#      start_period: 10s
+#      interval: 10s
+#      retries: 3
+#      timeout: 5s
+
+
+
